@@ -1,0 +1,18 @@
+lark:
+  app-id: test-app-id
+  app-secret: test-app-secret
+  encrypt-key: test-encrypt-key
+  approval-code: test-approval-code
+  form-fields:
+    buyer-name: field_buyer_name
+    buyer-tax-no: field_buyer_tax_no
+    buyer-address-phone: field_buyer_address_phone
+    buyer-bank-account: field_buyer_bank_account
+    invoice-type: field_invoice_type
+    amount: field_amount
+    items: field_items
+
+kingdee:
+  api-url: http://localhost:9999
+  app-key: test-app-key
+  app-secret: test-app-secret

@@ -1,0 +1,21 @@
+server:
+  port: 8080
+
+lark:
+  app-id: ${LARK_APP_ID:your-app-id}
+  app-secret: ${LARK_APP_SECRET:your-app-secret}
+  encrypt-key: ${LARK_ENCRYPT_KEY:your-encrypt-key}
+  approval-code: ${LARK_APPROVAL_CODE:your-approval-code}
+  form-fields:
+    buyer-name: field_buyer_name
+    buyer-tax-no: field_buyer_tax_no
+    buyer-address-phone: field_buyer_address_phone
+    buyer-bank-account: field_buyer_bank_account
+    invoice-type: field_invoice_type
+    amount: field_amount
+    items: field_items
+
+kingdee:
+  api-url: ${KINGDEE_API_URL:https://api.kingdee.com}
+  app-key: ${KINGDEE_APP_KEY:your-app-key}
+  app-secret: ${KINGDEE_APP_SECRET:your-app-secret}
