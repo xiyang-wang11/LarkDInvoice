@@ -15,15 +15,9 @@ public class LarkEvent {
     private String token;
     private String type;
 
-    private Schema schema;
+    private String schema;
     private Header header;
     private EventBody event;
-
-    @Data
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Schema {
-        private String schema;
-    }
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
