@@ -11,6 +11,9 @@ public class InvoiceResult {
     @JsonProperty("success")
     private boolean success;
 
+    /** 金蝶异步处理中，等待回调 */
+    private boolean pending;
+
     @JsonProperty("invoiceNo")
     private String invoiceNo;
 
@@ -19,4 +22,10 @@ public class InvoiceResult {
 
     @JsonProperty("errorMsg")
     private String errorMsg;
+
+    public static InvoiceResult ofPending() {
+        InvoiceResult r = new InvoiceResult();
+        r.pending = true;
+        return r;
+    }
 }

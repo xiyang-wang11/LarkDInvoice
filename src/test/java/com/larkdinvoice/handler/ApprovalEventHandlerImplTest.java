@@ -6,6 +6,7 @@ import com.larkdinvoice.config.AppConfig;
 import com.larkdinvoice.model.InvoiceResult;
 import com.larkdinvoice.model.LarkEvent;
 import com.larkdinvoice.service.LarkNotifyService;
+import com.larkdinvoice.store.PendingInvoiceStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +36,8 @@ class ApprovalEventHandlerImplTest {
     private LarkNotifyService larkNotifyService;
     @Mock
     private ObjectMapper objectMapper;
+    @Mock
+    private PendingInvoiceStore pendingInvoiceStore;
 
     @InjectMocks
     private ApprovalEventHandlerImpl handler;
@@ -71,7 +74,7 @@ class ApprovalEventHandlerImplTest {
     }
 
     @Test
-    void shouldNotifySuccessWhenInvoiceCreated() throws Exception {
+    void shouldNotifySuccessWhenInvoiceCreatedSynchronously() throws Exception {
         LarkEvent event = buildEvent("test-approval-code", "APPROVED");
         event.getEvent().setForm("[{\"id\":\"field_buyer_name\",\"value\":\"测试公司\"}]");
 
@@ -87,6 +90,25 @@ class ApprovalEventHandlerImplTest {
         handler.handle(event);
 
         verify(larkNotifyService).notifySuccess(eq("test-open-id"), eq("INV-2026-001"), any(BigDecimal.class));
+    }
+
+    @Test
+    void shouldNotNotifyWhenInvoiceIsPending() throws Exception {
+        LarkEvent event = buildEvent("test-approval-code", "APPROVED");
+        event.getEvent().setForm("[{\"id\":\"field_buyer_name\",\"value\":\"测试公司\"}]");
+
+        List<Map<String, Object>> formList = buildFormList();
+        when(objectMapper.readValue(any(String.class), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+                .thenReturn(formList);
+
+        when(kingdeeInvoiceClient.createInvoice(any())).thenReturn(InvoiceResult.ofPending());
+
+        handler.handle(event);
+
+        // 异步处理中，不应通知飞书，等回调
+        verifyNoInteractions(larkNotifyService);
+        // 应存入 pending 映射
+        verify(pendingInvoiceStore).put(eq("test-instance-001"), eq("test-open-id"), any(BigDecimal.class));
     }
 
     @Test

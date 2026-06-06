@@ -97,8 +97,14 @@ public class KingdeeInvoiceClientImpl implements KingdeeInvoiceClient {
 
             InvoiceResult result = new InvoiceResult();
             if (resp != null && resp.isSuccess()) {
-                result.setSuccess(true);
-                result.setInvoiceNo(resp.getInvoiceNum());
+                if (resp.getInvoiceNum() != null && !resp.getInvoiceNum().isEmpty()) {
+                    // 同步返回了发票号（部分环境）
+                    result.setSuccess(true);
+                    result.setInvoiceNo(resp.getInvoiceNum());
+                } else {
+                    // 受理成功，异步处理中，等待金蝶回调
+                    return InvoiceResult.ofPending();
+                }
             } else {
                 result.setSuccess(false);
                 result.setErrorMsg(resp != null ? resp.getFailReason() : "响应为空");
