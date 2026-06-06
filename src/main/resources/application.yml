@@ -16,6 +16,12 @@ lark:
     items: field_items
 
 kingdee:
-  api-url: ${KINGDEE_API_URL:https://api.kingdee.com}
-  app-key: ${KINGDEE_APP_KEY:your-app-key}
-  app-secret: ${KINGDEE_APP_SECRET:your-app-secret}
+  get-app-token-url: ${KINGDEE_GET_APP_TOKEN_URL:https://cosmic-demo.piaozone.com/demo/api/getAppToken.do}
+  login-url: ${KINGDEE_LOGIN_URL:https://cosmic-demo.piaozone.com/demo/api/login.do}
+  open-invoice-url: ${KINGDEE_OPEN_INVOICE_URL:https://cosmic-demo.piaozone.com/demo/kapi/app/sim/openApi}
+  app-id: ${KINGDEE_APP_ID:CQJC}
+  app-secret: ${KINGDEE_APP_SECRET:Z!GEm)[O&_%{H8}
+  account-id: ${KINGDEE_ACCOUNT_ID:1640533801123708928}
+  user: ${KINGDEE_USER:13714962604}
+  business-system-code: ${KINGDEE_BUSINESS_SYSTEM_CODE:CQJC}
+  token-expire-minutes: 55

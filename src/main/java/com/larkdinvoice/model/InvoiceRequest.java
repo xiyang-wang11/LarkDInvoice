@@ -46,8 +46,14 @@ public class InvoiceRequest {
         @JsonProperty("quantity")
         private BigDecimal quantity;
 
+        @JsonProperty("units")
+        private String units;
+
         @JsonProperty("unitPrice")
         private BigDecimal unitPrice;
+
+        @JsonProperty("amount")
+        private BigDecimal amount;
 
         @JsonProperty("taxRate")
         private BigDecimal taxRate;

@@ -30,8 +30,20 @@ public class AppConfig {
     @Configuration
     @ConfigurationProperties(prefix = "kingdee")
     public static class KingdeeConfig {
-        private String apiUrl;
-        private String appKey;
+        /** getAppToken 接口地址 */
+        private String getAppTokenUrl;
+        /** login 接口地址 */
+        private String loginUrl;
+        /** 开票接口地址 */
+        private String openInvoiceUrl;
+        private String appId;
         private String appSecret;
+        private String accountId;
+        /** 登录用户（手机号） */
+        private String user;
+        /** businessSystemCode，用于开票请求 */
+        private String businessSystemCode;
+        /** Token 缓存时间（分钟），默认 55 */
+        private int tokenExpireMinutes = 55;
     }
 }
