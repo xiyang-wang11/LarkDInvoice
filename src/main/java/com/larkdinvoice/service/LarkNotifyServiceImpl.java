@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.larkdinvoice.config.AppConfig;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
-import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -17,7 +16,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
-@Service
 public class LarkNotifyServiceImpl implements LarkNotifyService {
 
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");

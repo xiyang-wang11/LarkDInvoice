@@ -22,7 +22,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
-@Component
 public class KingdeeInvoiceClientImpl implements KingdeeInvoiceClient {
 
     private static final MediaType JSON_TYPE = MediaType.get("application/json; charset=utf-8");

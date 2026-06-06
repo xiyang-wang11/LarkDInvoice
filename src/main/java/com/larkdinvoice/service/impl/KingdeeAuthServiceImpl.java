@@ -16,7 +16,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Slf4j
-@Service
 public class KingdeeAuthServiceImpl implements KingdeeAuthService {
 
     private static final MediaType JSON_TYPE = MediaType.get("application/json; charset=utf-8");
