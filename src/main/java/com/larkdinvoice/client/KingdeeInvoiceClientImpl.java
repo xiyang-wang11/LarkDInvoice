@@ -123,6 +123,9 @@ public class KingdeeInvoiceClientImpl implements KingdeeInvoiceClient {
         bill.setTotalAmount(request.getTotalAmount());
         bill.setAutoInvoice("1");
         bill.setIncludeTaxFlag("0");
+        // 销方信息
+        bill.setSellerName(request.getSellerName());
+        bill.setSellerTaxpayerId(config.getSellerTaxpayerId());
 
         if (request.getItems() != null && !request.getItems().isEmpty()) {
             List<BillDetail> details = request.getItems().stream().map(item -> {
@@ -133,6 +136,7 @@ public class KingdeeInvoiceClientImpl implements KingdeeInvoiceClient {
                 d.setUnits(item.getUnits());
                 d.setPrice(item.getUnitPrice());
                 d.setTaxRate(item.getTaxRate() != null ? item.getTaxRate().toPlainString() : null);
+                d.setLineProperty(2);
                 return d;
             }).collect(Collectors.toList());
             bill.setBillDetail(details);

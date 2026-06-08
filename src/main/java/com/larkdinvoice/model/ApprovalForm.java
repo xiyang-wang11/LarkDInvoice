@@ -17,6 +17,7 @@ public class ApprovalForm {
     private String buyerBankAccount;
     private String invoiceType;
     private BigDecimal amount;
+    private String sellerName;
     private List<InvoiceItem> items;
 
     @Data
@@ -26,6 +27,7 @@ public class ApprovalForm {
         private String spec;
         private BigDecimal quantity;
         private BigDecimal unitPrice;
+        private BigDecimal amount;
         private BigDecimal taxRate;
     }
 }

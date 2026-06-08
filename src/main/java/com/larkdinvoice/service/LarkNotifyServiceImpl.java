@@ -87,6 +87,11 @@ public class LarkNotifyServiceImpl implements LarkNotifyService {
         }
     }
 
+    @Override
+    public String getTenantAccessToken() throws Exception {
+        return getAccessToken();
+    }
+
     private String getAccessToken() throws Exception {
         long now = System.currentTimeMillis() / 1000;
         if (cachedToken.get() != null && tokenExpireAt.get() - now > 300) {

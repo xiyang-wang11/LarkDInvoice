@@ -24,6 +24,12 @@ public class AppConfig {
         private String invoiceType;
         private String amount;
         private String items;
+        /** 购方企业名称（用于开票名称） */
+        private String buyerCompanyName;
+        /** 购方企业税号 */
+        private String buyerCompanyTaxNo;
+        /** 销方公司名称（所属公司字段） */
+        private String sellerName;
     }
 
     @Data
@@ -43,6 +49,8 @@ public class AppConfig {
         private String user;
         /** businessSystemCode，用于开票请求 */
         private String businessSystemCode;
+        /** 默认销方税号（固定值，从配置读取） */
+        private String sellerTaxpayerId;
         /** Token 缓存时间（分钟），默认 55 */
         private int tokenExpireMinutes = 55;
     }

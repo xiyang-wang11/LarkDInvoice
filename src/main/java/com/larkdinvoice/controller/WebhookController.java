@@ -42,7 +42,7 @@ public class WebhookController {
             if (root.has("encrypt")) {
                 String encrypted = root.get("encrypt").asText();
                 bodyToProcess = decrypt(encrypted, appConfig.getEncryptKey());
-                log.debug("飞书加密消息解密成功");
+                log.info("飞书加密消息解密成功，内容：{}", bodyToProcess);
             }
         } catch (Exception e) {
             log.warn("飞书消息解密失败：{}", e.getMessage());

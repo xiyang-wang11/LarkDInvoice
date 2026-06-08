@@ -31,6 +31,12 @@ public class InvoiceRequest {
     @JsonProperty("totalAmount")
     private BigDecimal totalAmount;
 
+    @JsonProperty("sellerName")
+    private String sellerName;
+
+    @JsonProperty("sellerTaxpayerId")
+    private String sellerTaxpayerId;
+
     @JsonProperty("items")
     private List<Item> items;
 
