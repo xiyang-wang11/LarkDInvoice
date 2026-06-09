@@ -220,6 +220,7 @@ public class ApprovalEventHandlerImpl implements ApprovalEventHandler {
                         .unitPrice(i.getUnitPrice())
                         .amount(i.getAmount())
                         .taxRate(i.getTaxRate())
+                        .revenueCode(i.getRevenueCode())
                         .build())
                         .collect(Collectors.toList())
                 : Collections.emptyList();
@@ -265,10 +266,13 @@ public class ApprovalEventHandlerImpl implements ApprovalEventHandler {
 
                 String goodsName = getStr(rowFieldMap, "widget17809209117330001");
                 if (isBlank(goodsName)) {
-                    goodsName = getStr(rowFieldMap, "widget17809206998000001"); // 业务项目名称
+                    goodsName = getStr(rowFieldMap, "widget17809206998000001");
                 }
                 Object amtObj = rowFieldMap.get("widget17809208366790001");
                 BigDecimal amt = amtObj != null ? new BigDecimal(amtObj.toString()) : BigDecimal.ZERO;
+
+                // 根据商品名称自动匹配税收分类编码
+                String revenueCode = resolveRevenueCode(goodsName);
 
                 items.add(ApprovalForm.InvoiceItem.builder()
                         .goodsName(goodsName)
@@ -276,6 +280,7 @@ public class ApprovalEventHandlerImpl implements ApprovalEventHandler {
                         .amount(amt)
                         .unitPrice(amt)
                         .taxRate(new BigDecimal("0.06"))
+                        .revenueCode(revenueCode)
                         .build());
             }
             return items;
@@ -294,6 +299,12 @@ public class ApprovalEventHandlerImpl implements ApprovalEventHandler {
             return text != null ? text.toString() : "";
         }
         return v.toString();
+    }
+
+    private String resolveRevenueCode(String goodsName) {
+        if (goodsName == null) return "3070301000000000000";
+        if (goodsName.contains("旅游")) return "3070301000000000000";
+        return "3070301000000000000"; // 默认旅游服务税收分类编码
     }
 
     private boolean isBlank(String s) {

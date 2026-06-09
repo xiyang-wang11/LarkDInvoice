@@ -29,5 +29,6 @@ public class ApprovalForm {
         private BigDecimal unitPrice;
         private BigDecimal amount;
         private BigDecimal taxRate;
+        private String revenueCode;
     }
 }

@@ -32,9 +32,20 @@ public class KingdeeCallbackController {
     private final PendingInvoiceStore pendingInvoiceStore;
 
     @PostMapping("/callback")
-    public KingdeeCallbackResponse callback(@RequestBody KingdeeCallbackRequest req) {
-        log.info("收到金蝶回调，interfaceCode：{}，returnCode：{}",
-                req.getInterfaceCode(), req.getReturnCode());
+    public KingdeeCallbackResponse callback(@RequestBody String rawBody) {
+        log.info("收到金蝶回调原始请求体：{}", rawBody);
+
+        KingdeeCallbackRequest req;
+        try {
+            req = new com.fasterxml.jackson.databind.ObjectMapper().readValue(rawBody, KingdeeCallbackRequest.class);
+        } catch (Exception e) {
+            log.error("解析金蝶回调请求体失败：{}", e.getMessage());
+            return KingdeeCallbackResponse.ok();
+        }
+
+        log.info("收到金蝶回调，interfaceCode：{}，returnCode：{}，data类型：{}",
+                req.getInterfaceCode(), req.getReturnCode(),
+                req.getData() != null ? req.getData().getClass().getSimpleName() : "null");
 
         try {
             List<CallbackData> dataList = req.decodeData();
@@ -62,6 +73,7 @@ public class KingdeeCallbackController {
 
         // 查找飞书审批发起人信息
         PendingEntry entry = pendingInvoiceStore.get(billNo);
+        log.info("回调查找 PendingStore，billNo：{}，entry：{}", billNo, entry != null ? entry.getOpenId() : "null");
         if (entry == null) {
             log.warn("回调找不到对应的飞书发起人，billNo：{}，可能已处理或服务重启过", billNo);
             return;
@@ -77,7 +89,8 @@ public class KingdeeCallbackController {
             pendingInvoiceStore.remove(billNo);
             String invoiceNo = StringUtils.hasText(item.getInvoiceNum())
                     ? item.getInvoiceNum() : item.getInvoiceCode();
-            larkNotifyService.notifySuccess(entry.getOpenId(), invoiceNo, entry.getAmount());
+            larkNotifyService.notifySuccess(entry.getOpenId(), invoiceNo, entry.getAmount(),
+                    item.getInvoicePdfFileUrl());
         } else {
             String failReason = StringUtils.hasText(item.getIssueErrorMessage())
                     ? item.getIssueErrorMessage() : "开票失败，无错误信息";

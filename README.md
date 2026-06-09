@@ -1,32 +1,35 @@
 # LarkDInvoice — 飞书审批自动开票服务
 
-飞书工作台「开票申请单」审批通过后，自动调用金蝶发票云完成开票，并将开票结果通过飞书消息通知审批发起人。
+飞书工作台「开票申请单」审批通过后，自动调用金蝶发票云完成开票，并将开票结果（含发票号、金额、PDF链接）通过飞书消息通知审批发起人。
+
+**✅ 已完整跑通：飞书审批 → 金蝶开票 → 飞书通知（含PDF）**
 
 ## 业务流程
 
 ```
 飞书审批通过（开票申请单-王西阳测试）
-  │  Webhook 事件推送（加密）
+  │  Webhook 事件推送（AES-256-CBC 加密）
   ▼
 WebhookController（POST /webhook/lark）
-  └── AES-256-CBC 解密 → 验签 → 异步分发
+  └── 解密 → 验签 → 异步分发
         ▼
 ApprovalEventHandlerImpl
   ├── 过滤：approval_code 匹配 + status=APPROVED
-  ├── 幂等检查（ConcurrentHashMap，防重复开票）
+  ├── 幂等检查（ConcurrentHashMap）
   ├── 调飞书 API 获取审批实例详情（含表单数据）
-  ├── 解析表单字段（购方名称、税号、金额、明细等）
+  ├── 解析表单字段（购方、销方、金额、明细+税收分类编码）
   ├── PendingInvoiceStore.put(instanceCode, openId, amount)
   └── KingdeeInvoiceClientImpl.createInvoice()
         ├── 鉴权：getAppToken → login → accessToken（55分钟缓存）
-        ├── 构建开票请求（Base64编码 data 字段）
-        ├── 同步返回发票号 → LarkNotifyService.notifySuccess()
-        ├── 返回 pending   → 等待金蝶异步回调
-        └── 返回失败       → LarkNotifyService.notifyFailure()
+        ├── 构建开票请求（Base64编码，lineProperty=2，revenueCode）
+        ├── 同步返回发票号 → notifySuccess() 立即通知
+        ├── 返回 pending   → 等待金蝶异步回调（约2分钟）
+        └── 返回失败       → notifyFailure() 立即通知
 
 金蝶异步回调（POST /webhook/kingdee/callback）
-  └── 解析回调数据 → PendingInvoiceStore.get(billNo)
-        ├── 开票成功 → notifySuccess(openId, invoiceNo, amount)
+  └── base64解码 data（单个JSON对象格式）
+        ├── PendingInvoiceStore.get(billNo) → 查找 openId
+        ├── 开票成功 → notifySuccess(openId, invoiceNo, amount, pdfUrl)
         └── 开票失败 → notifyFailure(openId, failReason)
 ```
 
@@ -34,7 +37,7 @@ ApprovalEventHandlerImpl
 
 - Java 11 + Spring Boot 2.7.18
 - OkHttp3 4.12.0（调用飞书 / 金蝶 HTTP API）
-- Hutool-crypto 5.8.26（飞书 Webhook 验签 SHA-256）
+- Hutool-crypto 5.8.26（飞书 Webhook 验签 SHA-256 + AES-256-CBC 解密）
 - Lombok + Jackson
 - JUnit 5 + Mockito + OkHttp MockWebServer
 
@@ -45,30 +48,30 @@ src/main/java/com/larkdinvoice/
 ├── config/
 │   ├── AppConfig.java          # 飞书配置（prefix=lark）+ 金蝶配置（KingdeeConfig, prefix=kingdee）
 │   ├── AsyncConfig.java        # 异步线程池 webhookExecutor（4~8线程）
-│   └── BeanConfig.java         # 手动装配 KingdeeAuthService / KingdeeInvoiceClient / LarkNotifyService
+│   └── BeanConfig.java         # 手动装配三个需要非默认构造器的 Bean
 ├── controller/
-│   ├── WebhookController.java       # POST /webhook/lark（飞书事件入口，含AES解密）
-│   └── KingdeeCallbackController.java  # POST /webhook/kingdee/callback（金蝶回调）
+│   ├── WebhookController.java       # POST /webhook/lark（AES解密+验签+异步分发）
+│   └── KingdeeCallbackController.java  # POST /webhook/kingdee/callback（base64解码+通知）
 ├── handler/
 │   ├── ApprovalEventHandler.java    # 接口
-│   └── ApprovalEventHandlerImpl.java # 审批事件处理（通过API获取表单+幂等控制）
+│   └── ApprovalEventHandlerImpl.java # 审批事件处理（API获取表单+幂等+开票）
 ├── client/
 │   ├── KingdeeInvoiceClient.java    # 接口
-│   └── KingdeeInvoiceClientImpl.java # 金蝶开票（Base64+accessToken+重试，lineProperty=2）
+│   └── KingdeeInvoiceClientImpl.java # 金蝶开票（Base64+accessToken+重试+revenueCode）
 ├── service/
 │   ├── KingdeeAuthService.java      # 接口
-│   ├── KingdeeAuthServiceImpl.java  # 三步鉴权（getAppToken→login→accessToken）
-│   ├── LarkNotifyService.java       # 接口（含 getTenantAccessToken）
-│   └── LarkNotifyServiceImpl.java   # 飞书消息发送（token缓存，提前5分钟续期）
+│   ├── KingdeeAuthServiceImpl.java  # 三步鉴权（55分钟缓存，ReentrantLock双重检查）
+│   ├── LarkNotifyService.java       # 接口（含 getTenantAccessToken、PDF重载）
+│   └── LarkNotifyServiceImpl.java   # 飞书消息发送（亲切文案+PDF链接）
 ├── store/
 │   └── PendingInvoiceStore.java     # billNo→(openId,amount) 内存映射，供异步回调查找
 ├── model/
 │   ├── LarkEvent.java          # 飞书 Webhook 事件结构
-│   ├── ApprovalForm.java       # 审批表单字段（含 sellerName、items）
-│   ├── InvoiceRequest.java     # 开票请求（含 sellerName/sellerTaxpayerId）
+│   ├── ApprovalForm.java       # 审批表单字段（含 sellerName、revenueCode）
+│   ├── InvoiceRequest.java     # 开票请求（含 sellerName/sellerTaxpayerId/revenueCode）
 │   └── InvoiceResult.java      # 开票结果（success/pending/error）
 └── dto/
-    ├── KingdeeCallbackRequest.java   # 金蝶回调（decodeData兼容JSON/base64两种格式）
+    ├── KingdeeCallbackRequest.java   # 金蝶回调（decodeData兼容JSON对象/数组/base64）
     ├── KingdeeCallbackResponse.java  # 金蝶回调响应（必须返回success:true）
     └── kingdee/
         ├── AppTokenRequest/Response  # 第一步鉴权
@@ -86,17 +89,21 @@ src/main/java/com/larkdinvoice/
 | 开票类型 | `widget17809203741940001` | → invoiceType（中文→金蝶代码） |
 | 申请金额 | `widget17809204063310001` | → totalAmount |
 | 客户/开票名称 | `widget17809205685890001` | → buyerName（fallback） |
-| 销方企业税号 | `widget17809205865030001` | → sellerTaxpayerId（表单值，配置覆盖） |
+| 销方企业税号 | `widget17809205865030001` | → 仅记录，实际用配置里的 sellerTaxpayerId |
 | 购方企业名称 | `widget17809262403630001` | → buyerName（优先） |
 | 购方企业税号 | `widget17809258471820001` | → buyerTaxpayerId |
-| 申请明细 | `widget17809206545230001` | → billDetail（fieldList类型） |
-| 邮箱地址 | `widget17809210496760001` | → buyerRecipientMail（备用） |
+| 申请明细 | `widget17809206545230001` | → billDetail（fieldList，自动匹配 revenueCode） |
+| 邮箱地址 | `widget17809210496760001` | → 备用 |
 | 地址 | `widget17809211297910001` | → buyerAddressAndTel |
 
-**发票类型映射**（中文→金蝶代码）：
+**发票类型映射（中文→金蝶代码）：**
 - 增值税普通发票 → `10xdp`
 - 增值税专用发票 → `10xpp`
 - 增值税电子专用发票 → `10xzp`
+
+**税收分类编码：**
+- 旅游服务费 → `3070301000000000000`
+- 其他 → `3070301000000000000`（默认，可在 `resolveRevenueCode()` 中扩展）
 
 ## 生产环境部署信息
 
@@ -119,38 +126,45 @@ src/main/java/com/larkdinvoice/
 | 审批定义 ID | `972E5FF4-CD72-4D4A-8D5D-4ABB3302EF46` |
 | Encrypt Key | `9rz4GBkOp3pFeGhutPvaueM7XudyWKlw` |
 | 事件订阅地址 | `http://124.221.93.209:8081/webhook/lark` |
-| 已订阅事件 | `approval_instance`（审批实例状态变更）|
+| 订阅事件 | `approval_instance`（审批实例状态变更）|
 | 已开通权限 | 访问审批应用、查看/创建/更新/删除审批、以应用身份发送消息 |
-
-> **注意**：飞书消息发送权限（`im:message:send_as_bot`）刚开通，如发消息仍失败需确认版本已发布。
+| 审批订阅 | 已通过 API 订阅（`POST /open-apis/approval/v4/approvals/{code}/subscribe`） |
 
 ## 金蝶发票云配置（演示环境）
 
 | 配置项 | 值 |
 |--------|-----|
-| getAppToken 地址 | `https://cosmic-demo.piaozone.com/demo/api/getAppToken.do` |
-| login 地址 | `https://cosmic-demo.piaozone.com/demo/api/login.do` |
-| 开票接口地址 | `https://cosmic-demo.piaozone.com/demo/kapi/app/sim/openApi` |
-| appId | `CQJC` |
-| appSecret | `Z!GEm)[O&amp;_%{H8`（注意：含 `&amp;` 字符串，非 HTML 实体） |
+| getAppToken | `https://cosmic-demo.piaozone.com/demo/api/getAppToken.do` |
+| login | `https://cosmic-demo.piaozone.com/demo/api/login.do` |
+| 开票接口 | `https://cosmic-demo.piaozone.com/demo/kapi/app/sim/openApi` |
+| appId | `CQJC1` |
+| appSecret | `WXY520@mmnnbb@@@***` |
 | accountId | `1640533801123708928` |
 | 登录手机号 | `13714962604` |
-| businessSystemCode | `CQJC` |
+| businessSystemCode | `CQJC1` |
 | sellerTaxpayerId | `915003006188392540` |
+| 回调地址（金蝶后台配置） | `http://124.221.93.209:8081/webhook/kingdee/callback` |
+| 数据加密策略 | BASE64（data 字段为 base64 编码的单个 JSON 对象） |
 
 ## 关键设计说明
 
-1. **加密 Webhook**：飞书开启加密策略后请求体为 `{"encrypt":"..."}` 格式，服务用 AES-256-CBC 解密（key = SHA-256(encryptKey) 前32字节，base64解码后前16字节为IV）。
+1. **飞书加密 Webhook**：请求体为 `{"encrypt":"..."}` 格式，用 AES-256-CBC 解密（key = SHA-256(encryptKey) 前32字节，base64解码后前16字节为IV）。
 
-2. **表单数据获取**：`approval_instance` 事件不含表单数据，需通过飞书审批实例详情 API（`GET /open-apis/approval/v4/instances/{instanceCode}`）获取。
+2. **表单数据获取**：`approval_instance` 事件不含表单数据，通过 `GET /open-apis/approval/v4/instances/{instanceCode}` 获取。
 
-3. **异步开票映射**：金蝶开票为异步流程，`PendingInvoiceStore` 在开票前存入 `instanceCode → (openId, amount)`，回调时查找并通知飞书。服务重启后映射丢失，但发票仍正常开具。
+3. **金蝶异步回调**：开票受理后约2分钟回调，`PendingInvoiceStore` 暂存 `instanceCode→(openId,amount)`，回调时查找并通知飞书。服务重启后映射丢失，发票仍正常开具。
 
-4. **幂等控制**：用 `ConcurrentHashMap` 存已处理的 `instanceCode`，开票失败时移除允许重试。
+4. **回调 data 格式**：金蝶回调 data 字段为 base64 编码的**单个 JSON 对象**（非数组），`decodeData()` 已兼容处理。
 
-5. **appSecret 特殊字符**：金蝶 appSecret 包含 `&amp;` 字符串，YAML 配置时需用单引号包裹：`'Z!GEm)[O&amp;_%{H8'`。
+5. **appSecret 特殊字符**：YAML 配置需单引号包裹，避免特殊字符解析错误。
 
-6. **明细行性质**：金蝶要求 `lineProperty` 必须指定，当前统一设为 `2`。
+6. **税收分类编码**：旅游服务费固定传 `3070301000000000000`，在 `resolveRevenueCode()` 中扩展。
+
+7. **飞书审批订阅**：需调用飞书 API 订阅审批定义，否则审批事件不会推送。命令：
+   ```bash
+   curl -X POST "https://open.feishu.cn/open-apis/approval/v4/approvals/972E5FF4-CD72-4D4A-8D5D-4ABB3302EF46/subscribe" \
+     -H "Authorization: Bearer {tenant_access_token}"
+   ```
 
 ## 部署步骤
 
@@ -181,7 +195,7 @@ plink -ssh -pw "WXY520@mm" -batch ^
   root@124.221.93.209 "tail -20 /opt/lark-d-invoice/app.log"
 ```
 
-### 服务器上直接操作
+### 服务器日常操作
 
 ```bash
 # 实时日志
@@ -199,59 +213,22 @@ nohup java -jar /opt/lark-d-invoice/lark-d-invoice-1.0.0-SNAPSHOT.jar \
   > /opt/lark-d-invoice/app.log 2>&1 &
 ```
 
-## 待办事项（明天继续）
+## 本地开发
 
-### 🔴 高优先级
+```bash
+# 编译
+mvn compile
 
-- [ ] **验证完整开票流程是否跑通**
-  - 重新发起一条审批并审批通过
-  - 观察日志：金蝶是否返回 `status:true` 或受理成功
-  - 如金蝶返回新错误，按错误信息继续调整
+# 运行测试（16个用例）
+mvn test
 
-- [ ] **验证飞书消息通知是否正常**
-  - 飞书消息权限（`im:message:send_as_bot`）刚开通，需确认版本已发布
-  - 检查审批通过后飞书是否收到开票成功/失败的消息通知
+# 打包
+mvn clean package -DskipTests
+```
 
-- [ ] **金蝶回调地址配置**
-  - 在金蝶发票云后台配置回调地址：`http://124.221.93.209:8081/webhook/kingdee/callback`
-  - 这样异步开票完成后金蝶才会推送结果
+## 后续优化建议
 
-### 🟡 中优先级
-
-- [ ] **审批表单字段 key 确认**
-  - `widget17809205865030001` 字段名已从「税务登记证号」改为「销方企业税号」
-  - 当前代码用表单里的该字段值，但配置里 `seller-taxpayer-id` 会覆盖
-  - 确认是否需要从表单取销方税号，还是固定在配置里
-
-- [ ] **更新本地 application.yml**
-  - 本地 `src/main/resources/application.yml` 仍是旧配置
-  - 应与服务器 `/opt/lark-d-invoice/application.yml` 保持一致（不含敏感凭证）
-
-- [ ] **提交所有未提交的代码改动**
-  - 最近的改动（明细解析、lineProperty、sellerName等）尚未 git commit/push
-
-### 🟢 低优先级（后续优化）
-
-- [ ] **PendingInvoiceStore 持久化**
-  - 当前内存实现，服务重启后丢失
-  - 可改为 Redis 或数据库，防止重启后回调找不到 openId
-
-- [ ] **切换正式金蝶环境**
-  - 当前使用演示环境（cosmic-demo.piaozone.com）
-  - 上生产前需替换为正式环境 URL 和凭证
-
-- [ ] **税收分类编码（revenueCode）**
-  - 当前明细未传 revenueCode，金蝶演示环境可能不强制要求
-  - 正式环境可能需要，审批表单可增加该字段
-
-- [ ] **发票 PDF 通知**
-  - 当前开票成功只通知发票号
-  - 可扩展为在回调收到 `invoicePdfFileUrl` 后，消息里附上 PDF 链接
-
-## 当前已知问题
-
-| 问题 | 状态 | 说明 |
-|------|------|------|
-| 金蝶演示环境开票 lineProperty=2 | 待验证 | 最新部署已修复，等待测试 |
-| 飞书发消息权限 | 待确认 | im:message:send_as_bot 刚开通，需确认版本发布 |
-| 金蝶回调未配置 | 待处理 | 需在金蝶后台配置回调地址 |
+- **PendingInvoiceStore 持久化**：当前内存实现，服务重启后丢失。可改为 Redis，确保重启后回调仍能找到 openId。
+- **切换正式金蝶环境**：当前演示环境，上生产前替换 URL 和凭证。
+- **税收分类编码扩展**：在 `resolveRevenueCode()` 中按商品名称补充更多映射。
+- **飞书消息卡片化**：当前为文本消息，可升级为飞书消息卡片（Card），展示更丰富的发票信息。

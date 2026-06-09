@@ -63,5 +63,8 @@ public class InvoiceRequest {
 
         @JsonProperty("taxRate")
         private BigDecimal taxRate;
+
+        @JsonProperty("revenueCode")
+        private String revenueCode;
     }
 }

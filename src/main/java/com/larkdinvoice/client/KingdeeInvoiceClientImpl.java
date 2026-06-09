@@ -137,6 +137,7 @@ public class KingdeeInvoiceClientImpl implements KingdeeInvoiceClient {
                 d.setPrice(item.getUnitPrice());
                 d.setTaxRate(item.getTaxRate() != null ? item.getTaxRate().toPlainString() : null);
                 d.setLineProperty(2);
+                d.setRevenueCode(item.getRevenueCode());
                 return d;
             }).collect(Collectors.toList());
             bill.setBillDetail(details);

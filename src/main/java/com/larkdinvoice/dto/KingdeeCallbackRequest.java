@@ -48,8 +48,16 @@ public class KingdeeCallbackRequest {
             } else {
                 json = mapper.writeValueAsString(data);
             }
-            return mapper.readValue(json,
-                    mapper.getTypeFactory().constructCollectionType(List.class, CallbackData.class));
+            json = json.trim();
+            // 兼容两种格式：JSON 数组 [...] 或单个对象 {...}
+            if (json.startsWith("[")) {
+                return mapper.readValue(json,
+                        mapper.getTypeFactory().constructCollectionType(List.class, CallbackData.class));
+            } else if (json.startsWith("{")) {
+                CallbackData item = mapper.readValue(json, CallbackData.class);
+                return Collections.singletonList(item);
+            }
+            return Collections.emptyList();
         } catch (Exception e) {
             return Collections.emptyList();
         }

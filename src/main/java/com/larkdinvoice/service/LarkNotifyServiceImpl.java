@@ -44,10 +44,22 @@ public class LarkNotifyServiceImpl implements LarkNotifyService {
 
     @Override
     public void notifySuccess(String openId, String invoiceNo, BigDecimal amount) {
+        notifySuccess(openId, invoiceNo, amount, null);
+    }
+
+    @Override
+    public void notifySuccess(String openId, String invoiceNo, BigDecimal amount, String pdfUrl) {
         String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        String text = String.format("开票成功\n发票号：%s\n金额：%s 元\n时间：%s",
-                invoiceNo, amount.toPlainString(), time);
-        sendMessage(openId, text);
+        StringBuilder text = new StringBuilder();
+        text.append("您好！您的开票申请已处理完成 🎉\n\n");
+        text.append("📄 发票号码：").append(invoiceNo).append("\n");
+        text.append("💰 开票金额：¥").append(amount.toPlainString()).append(" 元\n");
+        text.append("🕐 开票时间：").append(time).append("\n");
+        if (pdfUrl != null && !pdfUrl.isEmpty()) {
+            text.append("\n点击查看发票 PDF：\n").append(pdfUrl);
+        }
+        text.append("\n\n如有疑问请联系财务部，感谢您的配合！");
+        sendMessage(openId, text.toString());
     }
 
     @Override
